@@ -72,7 +72,7 @@ app.get('/', (req, res) => {
             }
 
             const supabaseUrl = 'https://tdcgsvbcidbjvpxhrmet.supabase.co';
-            const supabaseKey = 'SUPABASE_ANON_KEY_ของคุณ'; // ใส่ Key ของท่าน
+            const supabaseKey = 'sb_publishable_EvS6EtDqNWBbcNJt05YKbg_KOu5yspy'; // ใส่ Key ของท่าน
             const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
             document.getElementById('outageForm').addEventListener('submit', async (e) => {
