@@ -8,11 +8,11 @@ app.use(express.urlencoded({ extended: true }));
 
 // ตั้งค่าการเชื่อมต่อ Supabase กฟภ.สาขาควนขนุน
 const supabaseUrl = 'https://tdcgsvbcidbjvpxhrmet.supabase.co';
-const supabaseKey = 'SUPABASE_ANON_KEY_ของคุณ'; // ใส่ Key ของท่าน
+const supabaseKey = 'sb_publishable_EvS6EtDqNWBbcNJt05YKbg_KOu5yspy'; // ใส่ Key ของท่าน
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // LINE Channel Access Token
-const LINE_ACCESS_TOKEN = 'ใส่_Channel_Access_Token_ของคุณตรงนี้';
+const LINE_ACCESS_TOKEN = 'C2gX/V1yu+EnFsIxZnRNFAn5W4ct8yPMDMGZJxRBq/VmuHREjq2QiUngwNZsdydCesK1Zj1HJrVrOKsO0lf5+2G0yoZj827n/oARhziJenBfZG+2vEMHz3hE3LlgrrieMx7bSH5rp3jFShKAXYC40gdB04t89/1O/w1cDnyilFU=';
 
 // ---------------------------------------------------------
 // 1. หน้าเว็บไซต์หลัก (Web Frontend) สำหรับเปิดลิงก์แจ้งปัญหา
@@ -130,7 +130,7 @@ app.post('/webhook', async (req, res) => {
   for (const event of events) {
     const replyToken = event.replyToken;
 
-    // กรณีผู้ใช้พิมพ์ข้อความทักเข้ามา
+    // A. กรณีผู้ใช้พิมพ์ข้อความตัวอักษรเข้ามา (ตอบกลับพร้อมรายการไฟดับและลิงก์เว็บ)
     if (event.type === 'message' && event.message.type === 'text') {
       const { data: outages, error } = await supabase
         .from('outage_reports')
@@ -145,14 +145,13 @@ app.post('/webhook', async (req, res) => {
         });
       }
 
-      // ดึงลิงก์เว็บหลักจาก Render ของโปรเจกต์นี้เอง
       const webUrl = `https://${req.get('host')}/`;
       outageListText += `\n📍 หากท่านต้องการแจ้งปัญหาไฟฟ้าขัดข้อง กรุณาส่งพิกัด (Location) ของท่าน หรือแจ้งผ่านเว็บไซต์:\n${webUrl}`;
 
       await sendLineMessage(replyToken, outageListText);
     }
 
-    // กรณีผู้ใช้ส่งพิกัด (Location) เข้ามาเช็ก
+    // B. กรณีผู้ใช้ส่งพิกัด (Location) เข้ามาเช็กระยะรัศมี 1 กม.
     else if (event.type === 'message' && event.message.type === 'location') {
       const userLat = event.message.latitude;
       const userLon = event.message.longitude;
