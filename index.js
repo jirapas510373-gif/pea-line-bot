@@ -7,15 +7,18 @@ app.use(express.json());
 
 // ตั้งค่าการเชื่อมต่อ Supabase กฟภ.สาขาควนขนุน
 const supabaseUrl = 'https://tdcgsvbcidbjvpxhrmet.supabase.co';
-const supabaseKey = 'SUPABASE_ANON_KEY_ของท่าน'; // ใส่ Key หรือปล่อยผ่านถ้าใช้ระบบรับค่าอัตโนมัติ
+const supabaseKey = 'SUPABASE_ANON_KEY_ของคุณ'; // ใส่ Key ของท่าน
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// LINE Channel Access Token ที่ตั้งค่าไว้
+// LINE Channel Access Token
 const LINE_ACCESS_TOKEN = 'ใส่_Channel_Access_Token_ของคุณตรงนี้';
+
+// ลิงก์หน้าเว็บสำหรับแจ้งปัญหาไฟฟ้าขัดข้อง (เปลี่ยนเป็นลิงก์เว็บของคุณ)
+const WEB_REPORT_URL = 'https://pea-kwn-outage.onrender.com'; 
 
 // ฟังก์ชันคำนวณระยะทาง Haversine (รัศมี 1 กม.)
 function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-  const R = 6371; // รัศมีโลกหน่วยเป็นกิโลเมตร
+  const R = 6371; 
   const dLat = deg2rad(lat2 - lat1);
   const dLon = deg2rad(lon2 - lon1);
   const a =
@@ -38,49 +41,80 @@ app.post('/webhook', async (req, res) => {
   }
 
   for (const event of events) {
-    if (event.type === 'message' && event.message.type === 'location') {
-      const userLat = event.message.latitude;
-      const userLon = event.message.longitude;
-      const replyToken = event.replyToken;
+    const replyToken = event.replyToken;
 
-      // ดึงข้อมูลไฟดับจากตาราง outage_reports ใน Supabase
+    // 1. กรณีผู้ใช้ทักเข้ามาหรือส่งข้อความทั่วไป (ไม่ใช่ Location)
+    if (event.type === 'message' && event.message.type === 'text') {
+      // ดึงข้อมูลเฉพาะงานที่ยังไม่แล้วเสร็จจาก Supabase (สมมติว่าสถานะเสร็จใช้คอลัมน์ status หรือ completed)
+      // ปรับชื่อคอลัมน์ status ตามฐานข้อมูลจริงของคุณ เช่น status != 'completed' หรือ completed = false
       const { data: outages, error } = await supabase
         .from('outage_reports')
-        .select('*');
+        .select('*')
+        .eq('status', 'pending'); // หรือเงื่อนไขงานที่ยังไม่แล้วเสร็จ
+
+      let outageListText = "⚡ รายการพื้นที่ไฟฟ้าขัดข้อง (กฟภ.สาขาควนขนุน - ยังไม่แล้วเสร็จ):\n\nno active outages";
+      
+      if (!error && outages && outages.length > 0) {
+        outageListText = "⚡ แจ้งเหตุไฟฟ้าขัดข้อง (กฟภ.สาขาควนขนุน)\nรายการพื้นที่ไฟดับที่ยังไม่แล้วเสร็จ:\n";
+        outages.forEach((item, index) => {
+          outageListText += `${index + 1}. ${item.description || 'ไฟฟ้าขัดข้องฉุกเฉิน'} (พิกัด: ${item.latitude}, ${item.longitude})\n`;
+        });
+      }
+
+      outageListText += `\n📍 หากท่านต้องการแจ้งปัญหาไฟฟ้าขัดข้อง กรุณาส่งพิกัด (Location) ของท่านเพื่อตรวจสอบพื้นที่ไฟดับครับ`;
+
+      await sendLineMessage(replyToken, outageListText);
+    }
+
+    // 2. กรณีผู้ใช้ส่งพิกัด (Location) เข้ามา
+    else if (event.type === 'message' && event.message.type === 'location') {
+      const userLat = event.message.latitude;
+      const userLon = event.message.longitude;
+
+      // ดึงเฉพาะงานที่ยังไม่แล้วเสร็จมาเช็ก
+      const { data: outages, error } = await supabase
+        .from('outage_reports')
+        .select('*')
+        .eq('status', 'pending');
 
       let foundOutage = false;
-      let outageDetails = '';
 
       if (!error && outages) {
         for (const outage of outages) {
           const distance = getDistanceFromLatLonInKm(userLat, userLon, outage.latitude, outage.longitude);
           if (distance <= 1.0) { // อยู่ในรัศมี 1 กิโลเมตร
             foundOutage = true;
-            outageDetails = `⚠️ แจ้งเตือนพื้นที่ไฟฟ้าขัดข้อง (กฟภ.ควนขนุน)\nสาเหตุ: ${outage.description || 'กระแสไฟฟ้าขัดข้องฉุกเฉิน'}\nระยะห่างจากจุดของคุณ: ${(distance * 1000).toFixed(0)} เมตร`;
             break;
           }
         }
       }
 
-      let replyText = foundOutage 
-        ? outageDetails 
-        : "✅ ตรวจสอบแล้ว ตำแหน่งของคุณไม่อยู่ในพื้นที่ไฟดับ (รัศมี 1 กม. ปกติสุขดีครับ)";
+      let replyText = "";
+      if (foundOutage) {
+        replyText = "⚠️ พื้นที่ดังกล่าวได้รับการแจ้งปัญหาไฟฟ้าขัดข้องแล้ว เจ้าหน้าที่กำลังดำเนินการแก้ไขครับ";
+      } else {
+        replyText = `✅ ตำแหน่งของคุณไม่อยู่ในรัศมี 1 กม. จากจุดที่ได้รับแจ้ง\nหากต้องการแจ้งปัญหาไฟฟ้าขัดข้องเพิ่มเติม กรุณาแจ้งในหน้าเว็บของเราได้ที่:\n${WEB_REPORT_URL}`;
+      }
 
-      // ส่งข้อความกลับหาผู้ใช้ทาง LINE
-      await axios.post('https://api.line.me/v2/bot/message/reply', {
-        replyToken: replyToken,
-        messages: [{ type: 'text', text: replyText }]
-      }, {
-        headers: {
-          'Authorization': `Bearer ${LINE_ACCESS_TOKEN}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      await sendLineMessage(replyToken, replyText);
     }
   }
 
   res.status(200).send('OK');
 });
+
+// ฟังก์ชันช่วยส่งข้อความหา LINE
+async function sendLineMessage(replyToken, text) {
+  await axios.post('https://api.line.me/v2/bot/message/reply', {
+    replyToken: replyToken,
+    messages: [{ type: 'text', text: text }]
+  }, {
+    headers: {
+      'Authorization': `Bearer ${LINE_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json'
+    }
+  });
+}
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
