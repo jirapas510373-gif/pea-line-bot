@@ -11,7 +11,7 @@ const supabaseKey = 'SUPABASE_ANON_KEY_ของคุณ'; // ใส่ Key ข
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // LINE Channel Access Token
-const LINE_ACCESS_TOKEN = 'ใส่_Channel_Access_Token_ของคุณตรงนี้';
+const LINE_ACCESS_TOKEN = 'C2gX/V1yu+EnFsIxZnRNFAn5W4ct8yPMDMGZJxRBq/VmuHREjq2QiUngwNZsdydCesK1Zj1HJrVrOKsO0lf5+2G0yoZj827n/oARhziJenBfZG+2vEMHz3hE3LlgrrieMx7bSH5rp3jFShKAXYC40gdB04t89/1O/w1cDnyilFU=';
 
 // ลิงก์หน้าเว็บสำหรับแจ้งปัญหาไฟฟ้าขัดข้อง (เปลี่ยนเป็นลิงก์เว็บของคุณ)
 const WEB_REPORT_URL = 'https://pea-kwn-outage.onrender.com'; 
