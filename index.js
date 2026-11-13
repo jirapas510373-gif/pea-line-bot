@@ -43,25 +43,23 @@ app.post('/webhook', async (req, res) => {
   for (const event of events) {
     const replyToken = event.replyToken;
 
-    // 1. กรณีผู้ใช้ทักเข้ามาหรือส่งข้อความทั่วไป (ไม่ใช่ Location)
+    // 1. กรณีผู้ใช้ทักข้อความตัวอักษรเข้ามา
     if (event.type === 'message' && event.message.type === 'text') {
-      // ดึงข้อมูลเฉพาะงานที่ยังไม่แล้วเสร็จจาก Supabase (สมมติว่าสถานะเสร็จใช้คอลัมน์ status หรือ completed)
-      // ปรับชื่อคอลัมน์ status ตามฐานข้อมูลจริงของคุณ เช่น status != 'completed' หรือ completed = false
+      // ดึงข้อมูลทั้งหมดจากตาราง outage_reports
       const { data: outages, error } = await supabase
         .from('outage_reports')
-        .select('*')
-        .eq('status', 'pending'); // หรือเงื่อนไขงานที่ยังไม่แล้วเสร็จ
+        .select('*');
 
-      let outageListText = "⚡ รายการพื้นที่ไฟฟ้าขัดข้อง (กฟภ.สาขาควนขนุน - ยังไม่แล้วเสร็จ):\n\nno active outages";
+      let outageListText = "⚡ แจ้งเหตุไฟฟ้าขัดข้อง (กฟภ.สาขาควนขนุน)\n\nปัจจุบันไม่มีรายการพื้นที่ไฟฟ้าขัดข้องครับ";
       
       if (!error && outages && outages.length > 0) {
-        outageListText = "⚡ แจ้งเหตุไฟฟ้าขัดข้อง (กฟภ.สาขาควนขนุน)\nรายการพื้นที่ไฟดับที่ยังไม่แล้วเสร็จ:\n";
+        outageListText = "⚡ แจ้งเหตุไฟฟ้าขัดข้อง (กฟภ.สาขาควนขนุน)\nรายการพื้นที่ไฟดับที่มีการแจ้งไว้:\n";
         outages.forEach((item, index) => {
           outageListText += `${index + 1}. ${item.description || 'ไฟฟ้าขัดข้องฉุกเฉิน'} (พิกัด: ${item.latitude}, ${item.longitude})\n`;
         });
       }
 
-      outageListText += `\n📍 หากท่านต้องการแจ้งปัญหาไฟฟ้าขัดข้อง กรุณาส่งพิกัด (Location) ของท่านเพื่อตรวจสอบพื้นที่ไฟดับครับ`;
+      outageListText += `\n📍 หากท่านต้องการแจ้งปัญหาไฟฟ้าขัดข้อง กรุณาส่งพิกัด (Location) ของท่านในแชทนี้เพื่อตรวจสอบพื้นที่ไฟดับครับ`;
 
       await sendLineMessage(replyToken, outageListText);
     }
@@ -71,11 +69,10 @@ app.post('/webhook', async (req, res) => {
       const userLat = event.message.latitude;
       const userLon = event.message.longitude;
 
-      // ดึงเฉพาะงานที่ยังไม่แล้วเสร็จมาเช็ก
+      // ดึงข้อมูลทั้งหมดมาเช็กระยะทาง
       const { data: outages, error } = await supabase
         .from('outage_reports')
-        .select('*')
-        .eq('status', 'pending');
+        .select('*');
 
       let foundOutage = false;
 
